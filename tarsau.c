@@ -138,46 +138,49 @@ void fetchFileDetails(const char *name, FileDetail *fileD) {
 // Function to merge multiple files into one
 void joinFiles(int count, char *allFiles[], char outName[]) {
     fileSize total = 0;
-    FILE *output = fopen(outName, "w");
+    FILE *output = fopen(outName, "wb"); // Open in binary mode
     
     // Calculate total size of all files
-    for (int i = 1; i < count; i++) { 
+    for (int i = 0; i < count; i++) { 
         FileDetail detail;
         fetchFileDetails(allFiles[i], &detail);
         total += detail.fileSize;
     }
 
-    // Check if the output file was opened successfully
     if (!output) {
         perror("Failed to open output file");
+        return;
     }
 	
     // Write the total size to the output file
     fprintf(output, "%010ld", total);
     
     // Append file details to the output file
-    for (int i = 1; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         FileDetail detail;
         fetchFileDetails(allFiles[i], &detail);
-        printf("|%s, %s, %ld", detail.fileName, detail.filePermissions, detail.fileSize);
         fprintf(output, "|%s, %s, %ld", detail.fileName, detail.filePermissions, detail.fileSize);
     }
-    printf("|");
-    fprintf(output, "|");
-    
-    // Copy file contents to the output file
-    for (int i = 1; i < count; i++) { 
+    fprintf(output, "|\n"); // End of details
+
+    // Copy file contents to the output file and print them
+    for (int i = 0; i < count; i++) { 
         FileDetail detail;
-        FILE *inFile = fopen(allFiles[i], "r");
+        FILE *inFile = fopen(allFiles[i], "rb"); // Open in binary mode
         fetchFileDetails(allFiles[i], &detail);
         int size = detail.fileSize;
-        char* data = (char *)malloc(size + 1);
+        char* data = (char *)malloc(size);
         fread(data, 1, size, inFile);
-        strcat(data, "\n");
         fwrite(data, 1, size, output);
+        
+        // Print merged file content
+        printf("%s:\n", allFiles[i]);
+        fwrite(data, 1, size, stdout);
+        printf("\n");
+        
         fclose(inFile);
         free(data);
     }
-    printf("%010ld\n", total);
     fclose(output);
 }
+
