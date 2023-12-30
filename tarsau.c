@@ -24,9 +24,9 @@ int main(int argc, char *argv[]) {
     char* option = argv[1];
     char outputName[] = "output.sau"; 
 
-    if (strcmp(option, "-b") == 0) {
+    if (strcmp(option, "-a") == 0) {
         joinFiles(argc - 2, argv + 2, outputName);
-    } else if (strcmp(option, "-a") == 0) {
+    } else if (strcmp(option, "-b") == 0) {
         splitFiles(outputName, "folder");
     } else {
         printf("Please enter a valid argument.\n");
@@ -37,85 +37,93 @@ int main(int argc, char *argv[]) {
 }
 
 // Function to extract files from a merged file
-void splitFiles(char arch[], char dir[]) {
-    FILE *input = fopen("output.sau", "r");
+void splitFiles(char archName[], char dirName[]) {
+    FILE *sau = fopen("output.sau", "r");
 
-    // Check if the file was opened successfully
-    if (!input) {
-        perror("Cannot open output file");
+    if (!sau) {
+        perror("output.sau Can not open file.");
         return;
     }
 
-    fseek(input, 0, SEEK_END);
-    long fSize = ftell(input);
-    fseek(input, 0, SEEK_SET);
+    fseek(sau, 0, SEEK_END);
+    long fileSize = ftell(sau);
+    fseek(sau, 0, SEEK_SET);
 
-    char *data = (char *)malloc(fSize + 1);
+    char *buffer = (char *)malloc(fileSize + 1);
 
-    if (!data) {
-        perror("Memory error");
-        fclose(input);
+    if (!buffer) {
+        perror("Memory allocation error");
+        fclose(sau);
         return;
     }
 
-    fread(data, 1, fSize, input);
-    data[fSize] = '\0';
+    fread(buffer, 1, fileSize, sau);
+    buffer[fileSize] = '\0';
 
-    const char delim[] = "|,";
+    const char delimiters[] = "|,";
 
-    char *tok = strtok(data, delim);
+    char *token = strtok(buffer, delimiters);
 
     FileDetail detail;
-    FileDetail *detailsArray = NULL;
+    FileDetail *detailArray = NULL;
     int detailCount = 0;
-    int totalSize = 0;
 
-    // Parse the merged file's content
-    while (tok != NULL) {
-        if (strstr(tok, ".txt") != NULL) {
-            strcpy(detail.fileName, tok);
-            tok = strtok(NULL, delim);
-            strcpy(detail.filePermissions, tok);
-            tok = strtok(NULL, delim);
-            if (tok != NULL && atoi(tok) != 0) {
-                detail.fileSize = atoi(tok);
-                totalSize += detail.fileSize;
-                char *content = (char *)malloc(detail.fileSize);
-                if (!content) {
-                    perror("Memory error");
-                    fclose(input);
-                    free(data);
+    while (token != NULL) {
+        if (strstr(token, ".txt") != NULL) {
+            strcpy(detail.fileName, token);
+
+            token = strtok(NULL, delimiters);
+            strcpy(detail.filePermissions, token);
+
+            token = strtok(NULL, delimiters);
+            if (token != NULL && atoi(token) != 0) {
+                detail.fileSize = atoi(token);
+
+                char *fileContent = (char *)malloc(detail.fileSize);
+                if (!fileContent) {
+                    perror("Memory allocation error");
+                    fclose(sau);
+                    free(buffer);
                     return;
                 }
-                fread(content, 1, detail.fileSize, input);
-                free(content);
+
+                fread(fileContent, 1, detail.fileSize, sau);
+
+                free(fileContent);
             }
-            detailsArray = realloc(detailsArray, (detailCount + 1) * sizeof(FileDetail));
-            detailsArray[detailCount++] = detail;
+
+            detailArray = realloc(detailArray, (detailCount + 1) * sizeof(FileDetail));
+            detailArray[detailCount++] = detail;
         }
-        tok = strtok(NULL, delim);
+
+        token = strtok(NULL, delimiters);
     }
 
-    int pos = fSize;
+    printf("%ld", fileSize);
+    printf(" \n");
+    
     for (int i = detailCount - 1; i >= 0; i--) {
-        printf("File Name: %s\n", detailsArray[i].fileName);
-        printf("Permissions: %s\n", detailsArray[i].filePermissions);
-        printf("Size: %ld bytes\n", detailsArray[i].fileSize);
-        char buffer[detailsArray[i].fileSize];
-        FILE *outFile = fopen(detailsArray[i].fileName, "wb");
-        int offset = pos - detailsArray[i].fileSize;
-        for(int j = offset; j < pos; j++){
-            fseek(input, j, SEEK_SET);
-            fputc(fgetc(input), outFile);
+        printf("File Name---: %s\n", detailArray[i].fileName);
+        printf("Permissions: %s\n", detailArray[i].filePermissions);
+        printf("File Size: %ld bytes\n", detailArray[i].fileSize);
+
+        char chunkBuffer[detailArray[i].fileSize];
+        FILE *destFile = fopen(detailArray[i].fileName, "wb");
+        
+        for (long j = fileSize - detailArray[i].fileSize; j < fileSize; j++) {
+            fseek(sau, j, SEEK_SET);
+            fputc(fgetc(sau), destFile);
         }
-        pos = offset;
-        fclose(outFile);
+        
+        fclose(destFile);
     }
 
-    free(detailsArray);
-    free(data);
-    fclose(input);
+    // Free memory
+    free(detailArray);
+    free(buffer);
+    fclose(sau);
 }
+
 
 // Function to retrieve file details
 void fetchFileDetails(const char *name, FileDetail *fileD) {
@@ -173,14 +181,12 @@ void joinFiles(int count, char *allFiles[], char outName[]) {
         fread(data, 1, size, inFile);
         fwrite(data, 1, size, output);
         
-        // Print merged file content
-        printf("%s:\n", allFiles[i]);
-        fwrite(data, 1, size, stdout);
-        printf("\n");
-        
+      
         fclose(inFile);
         free(data);
     }
+      // Print merged file content
+        printf("The files have been merged.\n");
     fclose(output);
 }
 
